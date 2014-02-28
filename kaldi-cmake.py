@@ -46,7 +46,7 @@ class KaldiModule:
     depends = None
 
     def __init__(self, _name, _exe_mod, _tst_mod):
-        self.name = _name.upper()
+        self.name = _name
         self.exe_mod = _exe_mod
         self.tst_mod = _tst_mod
         self.hdr_lst = []
@@ -62,9 +62,15 @@ class KaldiModule:
             self.depends.add(depend)
         
     def WriteHdr(self, _lines):
-        _lines.append("\nset (HEADER_" + self.name)
+        _lines.append("\nset (HEADER_" + self.name.upper())
         for header in self.hdr_lst:
             _lines.append("\t" + header.ref_path)
+        _lines.append(")")
+
+    def WriteSrc(self, _lines):
+        _lines.append("\nset (SRC_" + self.name.upper())
+        for source in self.src_lst:
+            _lines.append("\t" + source.ref_path)
         _lines.append(")")
 
 def IsApplication(_path):
@@ -129,23 +135,49 @@ for dir_name in dir_lst:
                 match = re.search("-test\\...$", file_name)
                 if match:
                     shutil.copy(file_src, tst_dir)
-                    lib_module.Append(KaldiFile(file_src, os.path.join(g_tst_name, dir_name, file_name), True))
+                    module = KaldiModule(dir_name, True, True)
+                    module.Append(KaldiFile(file_src, os.path.join(g_tst_name, dir_name, file_name), False))
+                    tst_modules.append(module)
                 else:
                     shutil.copy(file_src, src_dir)
-                    lib_module.Append(KaldiFile(file_src, os.path.join(g_src_name, dir_name, file_name), True))
+                    module = KaldiModule(dir_name, True, False)
+                    module.Append(KaldiFile(file_src, os.path.join(g_src_name, dir_name, file_name), False))
+                    exe_modules.append(module)
             else:
                 shutil.copy(file_src, src_dir)
-                lib_module.Append(KaldiFile(file_src, os.path.join(g_src_name, dir_name, file_name), True))
+                lib_module.Append(KaldiFile(file_src, os.path.join(g_src_name, dir_name, file_name), False))
     if len(lib_module.hdr_lst) > 0:
         lib_modules.append(lib_module)
 
 lines = []            
 for module in lib_modules:
     module.WriteHdr(lines)
-    
 with open(g_hdr_cmake, "w", encoding="utf-8") as file_txt:
     for line in lines:
         file_txt.write(line + "\n")
+    file_txt.close()
+
+lines = []            
+for module in lib_modules:
+    module.WriteSrc(lines)
+with open(g_src_cmake, "w", encoding="utf-8") as file_txt:
+    for line in lines:
+        file_txt.write(line + "\n")
+    file_txt.close()
+
+with open(g_lst_cmake, "w", encoding="utf-8") as file_txt:
+    for module in exe_modules:
+        file_txt.write("\n" + module.name + "\n")
+        for source in module.src_lst:
+            file_txt.write("\t" + source.ref_path + "\n")
+        for depend in module.depends:
+            file_txt.write("\t" + depend + "\n")
+    for module in tst_modules:
+        file_txt.write("\n" + module.name + "\n")
+        for source in module.src_lst:
+            file_txt.write("\t" + source.ref_path + "\n")
+        for depend in module.depends:
+            file_txt.write("\t" + depend + "\n")
     file_txt.close()
 
 print("======= END =======")
