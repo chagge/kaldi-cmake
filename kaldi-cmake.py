@@ -11,6 +11,10 @@ g_inc_name = "include"
 g_src_name = "src"
 g_tst_name = "test"
 
+g_exclude = ["doc", "gst-plugin", "makefiles", "online", "onlinebin"]
+g_external = ["fst", "irstlm"]
+g_top_mod = ["base", "itf"]
+
 g_kaldi_trunk_src_dir = "../kaldi-trunk/src"
 g_dst_dir = "project"
 g_inc_dir = os.path.join(g_dst_dir, g_inc_name)
@@ -19,6 +23,7 @@ g_tst_dir = os.path.join(g_dst_dir, g_tst_name)
 g_hdr_cmake = os.path.join(g_dst_dir, "CMakeHeaderFileList.cmake")
 g_src_cmake = os.path.join(g_dst_dir, "CMakeSourceFileList.cmake")
 g_lst_cmake = os.path.join(g_dst_dir, "CMakeLists.txt")
+g_mod_sorted = os.path.join(g_dst_dir, "mod_sorted.txt")
 
 class KaldiFile:
     ref_path = None
@@ -33,12 +38,14 @@ class KaldiFile:
             lines = file_src.readlines()
             file_src.close()
         for line in lines:
-            match = re.search("^#include\\s+[<\"](base)/.+\\..+[>\"]", line)
+            match = re.search("^#include\\s+[\"\\./]([^\\./\"]+)/", line)
             if match:
                 self.depends.add(match.groups()[0])
 
 class KaldiModule:
     name = None
+    var_hdr = None
+    var_src = None
     exe_mod = None
     tst_mod = None
     hdr_lst = None
@@ -47,6 +54,8 @@ class KaldiModule:
 
     def __init__(self, _name, _exe_mod, _tst_mod):
         self.name = _name
+        self.var_hdr = "HEADER_" + re.sub("-", "_", _name).upper()
+        self.var_src = "SRC_" + re.sub("-", "_", _name).upper()
         self.exe_mod = _exe_mod
         self.tst_mod = _tst_mod
         self.hdr_lst = []
@@ -58,20 +67,21 @@ class KaldiModule:
             self.hdr_lst.append(_file)
         else:
             self.src_lst.append(_file)
-        for depend in _file.depends:
-            self.depends.add(depend)
+        self.depends = self.depends.union(_file.depends)
         
     def WriteHdr(self, _lines):
-        _lines.append("\nset (HEADER_" + self.name.upper())
-        for header in self.hdr_lst:
-            _lines.append("\t" + header.ref_path)
-        _lines.append(")")
+        if len(self.hdr_lst) > 0:
+            _lines.append("\nset (" + self.var_hdr)
+            for header in self.hdr_lst:
+                _lines.append("\t" + header.ref_path)
+            _lines.append(")")
 
     def WriteSrc(self, _lines):
-        _lines.append("\nset (SRC_" + self.name.upper())
-        for source in self.src_lst:
-            _lines.append("\t" + source.ref_path)
-        _lines.append(")")
+        if len(self.src_lst) > 0:
+            _lines.append("\nset (" + self.var_src)
+            for source in self.src_lst:
+                _lines.append("\t" + source.ref_path)
+            _lines.append(")")
 
 def IsApplication(_path):
     lines = []
@@ -103,6 +113,8 @@ exe_modules = []
 tst_modules = []
 dir_lst = os.listdir(g_kaldi_trunk_src_dir)
 for dir_name in dir_lst:
+    if dir_name in g_exclude:
+        continue
     mod_src_dir = os.path.join(g_kaldi_trunk_src_dir, dir_name)
     if os.path.isfile(mod_src_dir):
         continue
@@ -149,7 +161,12 @@ for dir_name in dir_lst:
     if len(lib_module.hdr_lst) > 0:
         lib_modules.append(lib_module)
 
-lines = []            
+for modules in [lib_modules, exe_modules, tst_modules]:
+    for module in modules:
+        if module.name in module.depends:
+            module.depends.remove(module.name)
+
+lines = []
 for module in lib_modules:
     module.WriteHdr(lines)
 with open(g_hdr_cmake, "w", encoding="utf-8") as file_txt:
@@ -157,7 +174,7 @@ with open(g_hdr_cmake, "w", encoding="utf-8") as file_txt:
         file_txt.write(line + "\n")
     file_txt.close()
 
-lines = []            
+lines = []
 for module in lib_modules:
     module.WriteSrc(lines)
 with open(g_src_cmake, "w", encoding="utf-8") as file_txt:
@@ -165,19 +182,71 @@ with open(g_src_cmake, "w", encoding="utf-8") as file_txt:
         file_txt.write(line + "\n")
     file_txt.close()
 
+mod_depends = dict()
+for module in lib_modules:
+    if module.name in mod_depends:
+        mod_depends[module.name] = mod_depends[module.name].union(module.depends)
+    else:
+        mod_depends[module.name] = set(module.depends)
+
+dict_temp = dict()
+for name, depends in mod_depends.items():
+    dict_temp[name] = set(depends)
+    for ext_name in g_external:
+        if ext_name in dict_temp[name]:
+            dict_temp[name].remove(ext_name)
+mod_sorted = []
+for min_key in g_top_mod:
+    mod_sorted.append(min_key)
+    del dict_temp[min_key]
+    for name, depends in dict_temp.items():
+        if min_key in depends:
+            depends.remove(min_key)
+while len(dict_temp) > 0:
+    min_key = None
+    min_len = 1000
+    for name, depends in dict_temp.items():
+        if min_len >= len(depends):
+            min_key = name
+            min_len = len(depends)
+    if min_len > 0:
+        print(min_key + " - " + str(min_len) + " : " + str(dict_temp[min_key]))
+    else:
+        print(min_key + " - " + str(min_len))
+    mod_sorted.append(min_key)
+    del dict_temp[min_key]
+    for name, depends in dict_temp.items():
+        if min_key in depends:
+            depends.remove(min_key)
+
+with open(g_mod_sorted, "w", encoding="utf-8") as file_txt:
+    for name in mod_sorted:
+        file_txt.write("\n" + name + "\n")
+        for depend in mod_depends[name]:
+            file_txt.write("\t" + depend + "\n")
+    file_txt.close()
+
 with open(g_lst_cmake, "w", encoding="utf-8") as file_txt:
+    for name in mod_sorted:
+        for module in lib_modules:
+            if (module.name == name) and (len(module.src_lst) > 0):
+                file_txt.write("\n" + module.name + " " + module.var_src + " " + module.var_hdr + "\n")
+                for depend in module.depends:
+                    file_txt.write("\t" + depend + "\n")
     for module in exe_modules:
         file_txt.write("\n" + module.name + "\n")
         for source in module.src_lst:
             file_txt.write("\t" + source.ref_path + "\n")
         for depend in module.depends:
             file_txt.write("\t" + depend + "\n")
-    for module in tst_modules:
-        file_txt.write("\n" + module.name + "\n")
-        for source in module.src_lst:
-            file_txt.write("\t" + source.ref_path + "\n")
-        for depend in module.depends:
-            file_txt.write("\t" + depend + "\n")
+    for name in mod_sorted:
+        for module in tst_modules:
+            if module.name == name:
+                file_txt.write("\n" + module.name + "\n")
+                for source in module.src_lst:
+                    file_txt.write("\t" + source.ref_path + "\n")
+                for depend in module.depends:
+                    file_txt.write("\t" + depend + "\n")
     file_txt.close()
 
 print("======= END =======")
