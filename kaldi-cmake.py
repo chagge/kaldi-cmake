@@ -17,9 +17,9 @@ g_inc_name = "include"
 g_src_name = "src"
 g_tst_name = "test"
 
-g_exclude = ["doc", "gst-plugin", "makefiles", "online", "onlinebin"]
+g_exclude = ["doc", "gst-plugin", "makefiles", "online", "onlinebin", "determinize-lattice-pruned-test"]
 g_external = ["fst", "irstlm"]
-g_top_mod = ["base", "itf"]
+g_top_mod = ["base"]
 g_include = ["decoder"]
 g_import = ["base"]
 
@@ -109,9 +109,11 @@ def AddStaticLibrary(_file, _module):
         if not (depend in _module.depends):
             _file.write("import_static_library(" + _module.name + " " + depend + ")\n")
 
-def AddExecutable(_file, _module, _regist):
+def AddExecutable(_file, _module, _depends, _regist):
     mod_name = os.path.basename(_module.src_lst[0].ref_path)
     mod_name = os.path.splitext(mod_name)[0]
+    if mod_name in g_exclude:
+        return
     if mod_name in _regist:
         _regist[mod_name] = _regist[mod_name] + 1
         mod_name = mod_name + "-" + str(_regist[mod_name])
@@ -119,12 +121,14 @@ def AddExecutable(_file, _module, _regist):
         _regist[mod_name] = 1
     _file.write("\nadd_executable(" + mod_name + " " + _module.src_lst[0].ref_path + ")\n")
     _file.write("set_default_executable_target_properties(" + mod_name + ")\n")
-    _file.write("import_static_library(" + mod_name + " " + _module.name + ")\n")
-    for depend in _module.depends:
+#    _file.write("import_static_library(" + mod_name + " " + _module.name + ")\n")
+    for depend in _depends:
         _file.write("import_static_library(" + mod_name + " " + depend + ")\n")
-    for depend in g_import:
-        if not (depend in _module.depends):
-            _file.write("import_static_library(" + mod_name + " " + depend + ")\n")
+#    for depend in _module.depends:
+#        _file.write("import_static_library(" + mod_name + " " + depend + ")\n")
+#    for depend in g_import:
+#        if not (depend in _module.depends):
+#            _file.write("import_static_library(" + mod_name + " " + depend + ")\n")
     _file.write("target_link_libraries(" + mod_name + " ${ATLASLIBS} ${OPENFSTLIBS} rt dl)\n")
 
 print("======= BEGIN =======")
@@ -226,6 +230,8 @@ with open(g_src_cmake, "w", encoding="utf-8") as file_txt:
 
 mod_depends = dict()
 for module in lib_modules:
+    if module.name in hdr_only:
+        continue
     if module.name in mod_depends:
         mod_depends[module.name] = mod_depends[module.name].union(module.depends)
     else:
@@ -241,8 +247,7 @@ for min_key in g_top_mod:
     mod_sorted.append(min_key)
     del dict_temp[min_key]
     for name, depends in dict_temp.items():
-        if min_key in depends:
-            depends.remove(min_key)
+        depends.discard(min_key)
 while len(dict_temp) > 0:
     min_key = None
     min_len = 1000
@@ -257,15 +262,19 @@ while len(dict_temp) > 0:
     mod_sorted.append(min_key)
     del dict_temp[min_key]
     for name, depends in dict_temp.items():
-        if min_key in depends:
-            depends.remove(min_key)
+        depends.discard(min_key)
 
+exe_depends = []
 with open(g_mod_sorted, "w", encoding="utf-8") as file_txt:
     for name in mod_sorted:
+        exe_depends.append(name)
         file_txt.write("\n" + name + "\n")
         for depend in mod_depends[name]:
             file_txt.write("\t" + depend + "\n")
     file_txt.close()
+#print(str(exe_depends))
+exe_depends.reverse()
+#print(str(exe_depends))
 
 regist = dict()
 lines = []
@@ -287,10 +296,12 @@ with open(g_lst_cmake, "w", encoding="utf-8") as file_txt:
 #            file_txt.write("\t" + source.ref_path + "\n")
 #        for depend in module.depends:
 #            file_txt.write("\t" + depend + "\n")
-    for name in mod_sorted:
-        for module in tst_modules:
-            if module.name == name:
-                AddExecutable(file_txt, module, regist)
+    for module in exe_modules:
+        AddExecutable(file_txt, module, exe_depends, regist)
+#    for name in mod_sorted:
+#        for module in tst_modules:
+#            if module.name == name:
+#                AddExecutable(file_txt, module, exe_depends, regist)
     file_txt.close()
 
 print("======= END =======")
