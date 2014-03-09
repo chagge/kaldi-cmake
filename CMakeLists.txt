@@ -12,51 +12,87 @@ include (cmake/CMakeInit.cmake)
 ### Find packages ###
 #####################
 
-#set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS ON)
+if (UNIX)
+	#set(OPENFSTLIBS "/home/yuri/work/install/kaldi-trunk-gpu/tools/openfst/lib")
+	set(FSTROOT "/home/yuri/work/install/kaldi-trunk-gpu/tools/openfst")
+	set(FSTINC "/home/yuri/work/install/kaldi-trunk-gpu/tools/openfst/include")
+	set(ATLASINC "/home/yuri/work/install/kaldi-trunk-gpu/tools/ATLAS/include")
+else()
+	# set(FSTINC "d:/Work/OpenFst/openfstwin-1.3.1/src/include")
+endif()
 
-#set(OPENFSTLIBS "/home/yuri/work/install/kaldi-trunk-gpu/tools/openfst/lib")
-set(FSTROOT "/home/yuri/work/install/kaldi-trunk-gpu/tools/openfst")
-set(FSTINC "/home/yuri/work/install/kaldi-trunk-gpu/tools/openfst/include")
-set(ATLASINC "/home/yuri/work/install/kaldi-trunk-gpu/tools/ATLAS/include")
+if (UNIX)
+	set(OPENFSTLIBS
+	  /home/yuri/work/install/kaldi-trunk-gpu/tools/openfst/lib/libfst.so
+	  /home/yuri/work/install/kaldi-trunk-gpu/tools/openfst/lib/fst/libfstfar.so
+	  /home/yuri/work/install/kaldi-trunk-gpu/tools/openfst/lib/fst/libfstfarscript.so
+	  /home/yuri/work/install/kaldi-trunk-gpu/tools/openfst/lib/fst/libfstngram.so
+	  /home/yuri/work/install/kaldi-trunk-gpu/tools/openfst/lib/fst/ngram-fst.so
+	)
+else()
+endif()
 
-set(OPENFSTLIBS
-  /home/yuri/work/install/kaldi-trunk-gpu/tools/openfst/lib/libfst.so
-  /home/yuri/work/install/kaldi-trunk-gpu/tools/openfst/lib/fst/libfstfar.so
-  /home/yuri/work/install/kaldi-trunk-gpu/tools/openfst/lib/fst/libfstfarscript.so
-  /home/yuri/work/install/kaldi-trunk-gpu/tools/openfst/lib/fst/libfstngram.so
-  /home/yuri/work/install/kaldi-trunk-gpu/tools/openfst/lib/fst/ngram-fst.so
-)
-set(ATLASLIBS
-  /usr/lib/atlas-base/libatlas.so.3.0
-  /usr/lib/atlas-base/libf77blas.so.3.0
-  /usr/lib/atlas-base/libcblas.so.3
-  /usr/lib/atlas-base/liblapack_atlas.so.3
-)
+if (UNIX)
+	set(ATLASLIBS
+	  /usr/lib/atlas-base/libatlas.so.3.0
+	  /usr/lib/atlas-base/libf77blas.so.3.0
+	  /usr/lib/atlas-base/libcblas.so.3
+	  /usr/lib/atlas-base/liblapack_atlas.so.3
+	)
+endif()
+
+if (WINDOWS)
+	set(Boost_USE_STATIC_LIBS   ON)
+else()
+	add_definitions(-DBOOST_TEST_DYN_LINK)
+	add_definitions(-DBOOST_TEST_MAIN)
+endif()
+find_package(Boost 1.51 REQUIRED COMPONENTS system filesystem thread date_time regex unit_test_framework chrono program_options)
+if(Boost_FOUND)
+	include_directories(${Boost_INCLUDE_DIRS})
+endif()
+add_definitions(-DBOOST_ALL_NO_LIB)
+add_definitions(-DBOOST_FILESYSTEM_VERSION=3)
+
+if (WINDOWS)
+	find_package(MKLM_11)
+	if(MKL_FOUND)
+		message("-- MKL_INCLUDE_DIRS: ${MKL_INCLUDE_DIRS}")
+		message("-- MKL_LIBRARIES: ${MKL_LIBRARIES}")
+		include_directories("${MKL_INCLUDE_DIRS}")
+	endif()
+endif()
+
+if (UNIX)
+	include_directories(${FSTINC})
+	include_directories(${ATLASINC})
+else()
+	# include_directories(${FSTINC})
+endif()
 
 add_definitions(-DKALDI_DOUBLEPRECISION=0)
-add_definitions(-DHAVE_POSIX_MEMALIGN)
-add_definitions(-DHAVE_EXECINFO_H=1)
-add_definitions(-DHAVE_CXXABI_H)
-add_definitions(-DHAVE_ATLAS)
+if (UNIX)
+	add_definitions(-DHAVE_POSIX_MEMALIGN)
+	add_definitions(-DHAVE_EXECINFO_H=1)
+	add_definitions(-DHAVE_CXXABI_H)
+	add_definitions(-DHAVE_ATLAS)
+else()
+	add_definitions(-DHAVE_MKL)
+endif()
+
+if(msvc)
+	set(cmake_cxx_flags "${cmake_cxx_flags} /mp")
+endif()
+
+if (WINDOWS)
+	set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS ON)
+endif()
 
 #####################
 ### Add externals ###
 #####################
 
-include_directories(${FSTINC})
-include_directories(${ATLASINC})
-
-#include_directories("externals/WaveReader")
-
 #add_module(StcAsrAcoModelMap)
-
-#if (NOT UNIX)
-#    add_module(sndfile ${PROJECT_SOURCE_DIR}/externals/sndfile)
-#endif()
-
-#if(MSVC)
-#	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
-#endif()
 
 ###################
 ### Compilation ###

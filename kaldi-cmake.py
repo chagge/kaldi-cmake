@@ -2,34 +2,56 @@
 # -*- coding: utf-8 -*-
 
 import os
-#import sys
+import sys
 import shutil
 import re
 #import random
+from argparse import ArgumentParser
 
-g_kaldi_trunk_src_dir = "../kaldi-trunk/src"
-g_dst_dir = "project/kaldi"
+parser = ArgumentParser(prog = "kaldi-cmake", description = "Скрипт для создания файлов проекта под CMake.")
+parser.add_argument ('-k', '--kaldi', default = os.getenv("KALDI_ROOT"), help = "Путь к директории с исходниками Kaldi.", metavar = 'DIR')
+parser.add_argument ('-p', '--project', default = str(os.path.join(os.path.abspath(os.curdir), "project")), help = 'Путь к директории, в которой нужно создать проект.', metavar = 'DIR')
+namespace = parser.parse_args(sys.argv[1:])
+if namespace.kaldi == None:
+    print("\nНеобходимо указать директорию с исходниками Kaldi.\n")
+    exit(1)
+print("Параметры запуска: {}\n".format(namespace))
+
+g_trunk_src = str(os.path.join(os.path.abspath(namespace.kaldi), "src")).replace('\\', '/')
+g_proj_src = os.path.join(namespace.project, "kaldi")
+
 g_cmake_src = "cmake"
-g_cmake_dst = os.path.join(g_dst_dir, "cmake")
+g_cmake_dst = os.path.join(g_proj_src, "cmake")
 g_cmake_hdr = "CMakeLists.txt"
 
 g_inc_name = "include"
 g_src_name = "src"
 g_tst_name = "test"
 
-g_exclude = ["doc", "gst-plugin", "makefiles", "online", "onlinebin", "determinize-lattice-pruned-test"]
+#g_allowed = ["base", "cudamatrix", "feat", "lm", "matrix", "nnet", "tree", "util"]
+g_allowed = ["base", "cudamatrix", "feat", "matrix", "util"]
+g_excl_dir = ["doc", "gst-plugin", "makefiles", "online", "onlinebin"]
+g_excl_src = [
+    "cu-device.cc",
+    "copy-feats-to-htk.cc",
+    "copy-feats-to-sphinx.cc",
+    "nnet-component-test.cc",
+    "online-tcp-source.cc",
+    "online-audio-client.cc",
+    "online-audio-server-decode-faster.cc",
+    "kaldi-io-test.cc",
+    "kaldi-table-test.cc",
+    "timer.h"
+]
 g_external = ["fst", "irstlm"]
-g_top_mod = ["base"]
-g_include = ["decoder"]
-g_import = ["base"]
 
-g_inc_dir = os.path.join(g_dst_dir, g_inc_name)
-g_src_dir = os.path.join(g_dst_dir, g_src_name)
-g_tst_dir = os.path.join(g_dst_dir, g_tst_name)
-g_hdr_cmake = os.path.join(g_dst_dir, "CMakeHeaderFileList.cmake")
-g_src_cmake = os.path.join(g_dst_dir, "CMakeSourceFileList.cmake")
-g_lst_cmake = os.path.join(g_dst_dir, "CMakeLists.txt")
-g_mod_sorted = os.path.join(g_dst_dir, "mod_sorted.txt")
+g_inc_dir = os.path.join(g_proj_src, g_inc_name)
+g_src_dir = os.path.join(g_proj_src, g_src_name)
+g_tst_dir = os.path.join(g_proj_src, g_tst_name)
+g_hdr_cmake = os.path.join(g_proj_src, "CMakeHeaderFileList.cmake")
+g_src_cmake = os.path.join(g_proj_src, "CMakeSourceFileList.cmake")
+g_lst_cmake = os.path.join(g_proj_src, "CMakeLists.txt")
+g_mod_sorted = os.path.join(g_proj_src, "mod_sorted.txt")
 
 class KaldiFile:
     ref_path = None
@@ -37,14 +59,14 @@ class KaldiFile:
     depends = None
     
     def __init__(self, _file_path, _ref_path, _header):
-        self.ref_path = _ref_path
+        self.ref_path = str(_ref_path).replace('\\', '/')
         self.header = _header
         self.depends = set()
         with open(_file_path, "r", encoding="utf-8") as file_src:
             lines = file_src.readlines()
             file_src.close()
         for line in lines:
-            match = re.search("^#include\\s+[\"\\./]([^\\./\"]+)/", line)
+            match = re.search(r"^#include\s+\"[./]*([^\./\"]+)/[^/\"]+\"", line)
             if match:
                 self.depends.add(match.groups()[0])
 
@@ -100,19 +122,28 @@ def IsApplication(_path):
             return True
     return False
 
+def IsAllowed(_module):
+    for depend in module.depends:
+        if not (depend in g_allowed):
+            return False
+    for src_file in _module.src_lst:
+        if os.path.basename(src_file.ref_path) in g_excl_src:
+            return False
+    return True
+
 def AddStaticLibrary(_file, _module):
     _file.write("\nadd_library(" + _module.name + " STATIC ${" + _module.var_src + "} ${" + _module.var_hdr + "})\n")
     _file.write("set_default_library_target_properties(" + _module.name + ")\n")
-    for depend in _module.depends:
-        _file.write("import_static_library(" + _module.name + " " + depend + ")\n")
-    for depend in g_import:
-        if not (depend in _module.depends):
-            _file.write("import_static_library(" + _module.name + " " + depend + ")\n")
+    #for depend in _module.depends:
+    #    _file.write("import_static_library(" + _module.name + " " + depend + ")\n")
+    #for depend in g_import:
+    #    if not (depend in _module.depends):
+    #        _file.write("import_static_library(" + _module.name + " " + depend + ")\n")
 
-def AddExecutable(_file, _module, _depends, _regist):
+def AddExecutable(_file, _module, _headers, _regist):
     mod_name = os.path.basename(_module.src_lst[0].ref_path)
     mod_name = os.path.splitext(mod_name)[0]
-    if mod_name in g_exclude:
+    if mod_name in g_excl_dir:
         return
     if mod_name in _regist:
         _regist[mod_name] = _regist[mod_name] + 1
@@ -122,20 +153,20 @@ def AddExecutable(_file, _module, _depends, _regist):
     _file.write("\nadd_executable(" + mod_name + " " + _module.src_lst[0].ref_path + ")\n")
     _file.write("set_default_executable_target_properties(" + mod_name + ")\n")
 #    _file.write("import_static_library(" + mod_name + " " + _module.name + ")\n")
-    for depend in _depends:
-        _file.write("import_static_library(" + mod_name + " " + depend + ")\n")
-#    for depend in _module.depends:
-#        _file.write("import_static_library(" + mod_name + " " + depend + ")\n")
-#    for depend in g_import:
-#        if not (depend in _module.depends):
-#            _file.write("import_static_library(" + mod_name + " " + depend + ")\n")
-    _file.write("target_link_libraries(" + mod_name + " ${ATLASLIBS} ${OPENFSTLIBS} rt dl)\n")
+    for depend in g_allowed:
+        if not (depend in _headers):
+            _file.write("import_static_library(" + mod_name + " " + depend + ")\n")
+    _file.write("if (UNIX)\n")
+    _file.write("\ttarget_link_libraries(" + mod_name + " ${Boost_LIBRARIES} ${ATLASLIBS} ${OPENFSTLIBS} rt dl)\n")
+    _file.write("else()\n")
+    _file.write("\ttarget_link_libraries(" + mod_name + " ${Boost_LIBRARIES} ${MKL_LIBRARIES})\n")
+    _file.write("endif()\n")
 
 print("======= BEGIN =======")
 
-if os.path.exists(g_dst_dir):
-    print("Удаление директории: " + g_dst_dir)
-    shutil.rmtree(g_dst_dir, True)
+if os.path.exists(g_proj_src):
+    print("Удаление директории: " + g_proj_src)
+    shutil.rmtree(g_proj_src, True)
 print("Копирование директории: " + g_cmake_src)
 shutil.copytree(g_cmake_src, g_cmake_dst)
 print("Создание директории: " + g_inc_dir)
@@ -148,11 +179,11 @@ os.mkdir(g_tst_dir)
 lib_modules = []
 exe_modules = []
 tst_modules = []
-dir_lst = os.listdir(g_kaldi_trunk_src_dir)
+dir_lst = os.listdir(g_trunk_src)
 for dir_name in dir_lst:
-    if dir_name in g_exclude:
+    if dir_name in g_excl_dir:
         continue
-    mod_src_dir = os.path.join(g_kaldi_trunk_src_dir, dir_name)
+    mod_src_dir = os.path.join(g_trunk_src, dir_name)
     if os.path.isfile(mod_src_dir):
         continue
     if dir_name[0] == '.':
@@ -198,19 +229,24 @@ for dir_name in dir_lst:
     if len(lib_module.hdr_lst) > 0:
         lib_modules.append(lib_module)
 
-for modules in [lib_modules, exe_modules, tst_modules]:
-    for module in modules:
-        module.depends.discard(module.name)
-        for ext_name in g_external:
-            module.depends.discard(ext_name)
+for module in lib_modules:
+    module.depends.discard(module.name)
+    for ext_name in g_external:
+        module.depends.discard(ext_name)
 hdr_only = []
 for module in lib_modules:
     if len(module.src_lst) == 0:
         hdr_only.append(module.name)
+        g_allowed.append(module.name)
 for modules in [lib_modules, exe_modules, tst_modules]:
     for module in modules:
         for mod_name in hdr_only:
             module.depends.discard(mod_name)
+modules = []
+for module in lib_modules:
+    if module.name in g_allowed:
+        modules.append(module)
+lib_modules = modules
 
 lines = []
 for module in lib_modules:
@@ -228,54 +264,6 @@ with open(g_src_cmake, "w", encoding="utf-8") as file_txt:
         file_txt.write(line + "\n")
     file_txt.close()
 
-mod_depends = dict()
-for module in lib_modules:
-    if module.name in hdr_only:
-        continue
-    if module.name in mod_depends:
-        mod_depends[module.name] = mod_depends[module.name].union(module.depends)
-    else:
-        mod_depends[module.name] = set(module.depends)
-
-dict_temp = dict()
-for name, depends in mod_depends.items():
-    dict_temp[name] = set(depends)
-    for ext_name in g_external:
-        dict_temp[name].discard(ext_name)
-mod_sorted = []
-for min_key in g_top_mod:
-    mod_sorted.append(min_key)
-    del dict_temp[min_key]
-    for name, depends in dict_temp.items():
-        depends.discard(min_key)
-while len(dict_temp) > 0:
-    min_key = None
-    min_len = 1000
-    for name, depends in dict_temp.items():
-        if min_len >= len(depends):
-            min_key = name
-            min_len = len(depends)
-    if min_len > 0:
-        print(min_key + " - " + str(min_len) + " : " + str(dict_temp[min_key]))
-    else:
-        print(min_key + " - " + str(min_len))
-    mod_sorted.append(min_key)
-    del dict_temp[min_key]
-    for name, depends in dict_temp.items():
-        depends.discard(min_key)
-
-exe_depends = []
-with open(g_mod_sorted, "w", encoding="utf-8") as file_txt:
-    for name in mod_sorted:
-        exe_depends.append(name)
-        file_txt.write("\n" + name + "\n")
-        for depend in mod_depends[name]:
-            file_txt.write("\t" + depend + "\n")
-    file_txt.close()
-#print(str(exe_depends))
-exe_depends.reverse()
-#print(str(exe_depends))
-
 regist = dict()
 lines = []
 with open(g_cmake_hdr, "r", encoding="cp1251") as file_txt:
@@ -284,24 +272,15 @@ with open(g_cmake_hdr, "r", encoding="cp1251") as file_txt:
 with open(g_lst_cmake, "w", encoding="utf-8") as file_txt:
     for line in lines:
         file_txt.write(line.rstrip() + "\n")
-    for module in g_include:
-        file_txt.write("\ninclude_directories(\"" + os.path.join(os.path.abspath(g_inc_dir), module) + "\")\n")
-    for name in mod_sorted:
-        for module in lib_modules:
-            if (module.name == name) and (len(module.src_lst) > 0):
-                AddStaticLibrary(file_txt, module)
-#    for module in exe_modules:
-#        file_txt.write("\n" + module.name + "\n")
-#        for source in module.src_lst:
-#            file_txt.write("\t" + source.ref_path + "\n")
-#        for depend in module.depends:
-#            file_txt.write("\t" + depend + "\n")
+    for module in lib_modules:
+        if not (module.name in hdr_only):
+            AddStaticLibrary(file_txt, module)
     for module in exe_modules:
-        AddExecutable(file_txt, module, exe_depends, regist)
-#    for name in mod_sorted:
-#        for module in tst_modules:
-#            if module.name == name:
-#                AddExecutable(file_txt, module, exe_depends, regist)
+        if IsAllowed(module):
+            AddExecutable(file_txt, module, hdr_only, regist)
+    for module in tst_modules:
+        if IsAllowed(module):
+            AddExecutable(file_txt, module, hdr_only, regist)
     file_txt.close()
 
 print("======= END =======")
