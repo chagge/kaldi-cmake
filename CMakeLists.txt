@@ -92,6 +92,7 @@ endif()
 ### Add externals ###
 #####################
 
+add_module(fst)
 #add_module(StcAsrAcoModelMap)
 
 ###################
