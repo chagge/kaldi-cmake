@@ -30,7 +30,11 @@ g_cmake_src = "cmake"
 g_cmake_dst = os.path.join(g_proj_src, "cmake")
 g_externals_src = "externals"
 g_externals_dst = os.path.join(g_proj_src, "externals")
-g_patched_src = "patched"
+g_patched_src = None
+if sys_type == "Linux":
+    g_patched_src = "patched_linux"
+else:
+    g_patched_src = "patched_windows"
 g_patched_dst = g_proj_src
 g_cmake_hdr = "CMakeLists.txt"
 
@@ -41,8 +45,8 @@ g_tst_name = "test"
 #g_allowed = ["base", "cudamatrix", "feat", "lm", "matrix", "nnet", "tree", "util"]
 g_allowed_bin = ["bin"]
 g_allowed_lib = [
-    "decoder", "transform", "lat", "nnet", "nnet2", "hmm", "sgmm", "sgmm2", "gmm",
-    "ivector", "thread", "tree", "feat", "lm", "util", "cudamatrix", "matrix", "fstext", "base"
+    "decoder", "transform", "lat", "nnet", "nnet2", "hmm", "ivector", "sgmm", "sgmm2", "gmm",
+    "thread", "tree", "feat", "lm", "util", "cudamatrix", "matrix", "fstext", "base"
 ]
 g_excl_dir = ["doc", "gst-plugin", "makefiles", "online", "onlinebin"]
 g_excl_src = [
@@ -314,7 +318,7 @@ with open(g_lst_cmake, "w", encoding="utf-8") as file_txt:
     #        AddExecutable(file_txt, module, hdr_only, regist)
     file_txt.close()
 
-#print("Копирование директории: " + g_patched_src)
-#CopyTree(g_patched_src, g_patched_dst)
+print("Копирование директории: " + g_patched_src)
+CopyTree(g_patched_src, g_patched_dst)
 
 print("======= END =======")
