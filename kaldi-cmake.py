@@ -42,7 +42,6 @@ g_inc_name = "include"
 g_src_name = "src"
 g_tst_name = "test"
 
-#g_allowed = ["base", "cudamatrix", "feat", "lm", "matrix", "nnet", "tree", "util"]
 g_allowed_bin = ["bin"]
 g_allowed_lib = [
     "decoder", "nnet", "nnet2", "lat", "sgmm2", "sgmm", "transform", "hmm", "ivector", "gmm",
@@ -198,17 +197,19 @@ def AddExecutable(_file, _module, _headers, _regist):
 
 print("======= BEGIN =======")
 
-#if os.path.exists(g_proj_src):
-#    print("Удаление директории: " + g_proj_src)
-#    shutil.rmtree(g_proj_src, True)
-print("Копирование директории: " + g_cmake_src)
-shutil.copytree(g_cmake_src, g_cmake_dst)
-#print("Копирование директории: " + g_externals_src)
-#shutil.copytree(g_externals_src, g_externals_dst)
+if os.path.exists(g_inc_dir):
+    print("Удаление директории: " + g_inc_dir)
+    shutil.rmtree(g_inc_dir, True)
 print("Создание директории: " + g_inc_dir)
 os.mkdir(g_inc_dir)
+if os.path.exists(g_src_dir):
+    print("Удаление директории: " + g_src_dir)
+    shutil.rmtree(g_src_dir, True)
 print("Создание директории: " + g_src_dir)
 os.mkdir(g_src_dir)
+if os.path.exists(g_tst_dir):
+    print("Удаление директории: " + g_tst_dir)
+    shutil.rmtree(g_tst_dir, True)
 print("Создание директории: " + g_tst_dir)
 os.mkdir(g_tst_dir)
 
