@@ -45,7 +45,7 @@ g_tst_name = "test"
 #g_allowed = ["base", "cudamatrix", "feat", "lm", "matrix", "nnet", "tree", "util"]
 g_allowed_bin = ["bin"]
 g_allowed_lib = [
-    "decoder", "transform", "lat", "nnet", "nnet2", "hmm", "ivector", "sgmm", "sgmm2", "gmm",
+    "decoder", "transform", "nnet", "nnet2", "lat", "hmm", "ivector", "sgmm", "sgmm2", "gmm",
     "thread", "tree", "feat", "lm", "util", "cudamatrix", "matrix", "fstext", "base"
 ]
 g_excl_dir = ["doc", "gst-plugin", "makefiles", "online", "onlinebin"]
