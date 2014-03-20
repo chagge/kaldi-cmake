@@ -45,7 +45,7 @@ g_tst_name = "test"
 #g_allowed = ["base", "cudamatrix", "feat", "lm", "matrix", "nnet", "tree", "util"]
 g_allowed_bin = ["bin"]
 g_allowed_lib = [
-    "decoder", "transform", "nnet", "nnet2", "lat", "hmm", "ivector", "sgmm", "sgmm2", "gmm",
+    "decoder", "nnet", "nnet2", "lat", "sgmm2", "sgmm", "transform", "hmm", "ivector", "gmm",
     "thread", "tree", "feat", "lm", "util", "cudamatrix", "matrix", "fstext", "base"
 ]
 g_excl_dir = ["doc", "gst-plugin", "makefiles", "online", "onlinebin"]
@@ -57,6 +57,7 @@ g_excl_src = [
     "kaldi-io-test.cc",
     "kaldi-table-test.cc",
     "nnet-component-test.cc",
+    "nnet-kl-hmm-sum-accs.cc",
     "online-audio-client.cc",
     "online-audio-server-decode-faster.cc",
     "online-tcp-source.cc",
