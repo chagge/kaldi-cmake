@@ -12,32 +12,64 @@ include (cmake/CMakeInit.cmake)
 ### Find packages ###
 #####################
 
+set(KALDI_TRUNK /home/vm/work/coding/kaldi/kaldi-trunk)
+
 if (UNIX)
-	#set(OPENFSTLIBS "/home/yuri/work/install/kaldi-trunk-gpu/tools/openfst/lib")
-	set(FSTROOT "/home/yuri/work/install/kaldi-trunk-gpu/tools/openfst")
-	set(FSTINC "/home/yuri/work/install/kaldi-trunk-gpu/tools/openfst/include")
-	set(ATLASINC "/home/yuri/work/install/kaldi-trunk-gpu/tools/ATLAS/include")
+	set(FSTINC "${KALDI_TRUNK}/tools/openfst/include")
+	set(ATLASINC "${KALDI_TRUNK}/tools/ATLAS/include")
 else()
 	# set(FSTINC "d:/Work/OpenFst/openfstwin-1.3.1/src/include")
 endif()
 
+#if (UNIX)
+#	set(OPENFSTLIBS
+#	  ${KALDI_TRUNK}/tools/openfst/lib/libfst.so
+#	  ${KALDI_TRUNK}/tools/openfst/lib/fst/libfstfar.so
+#	  ${KALDI_TRUNK}/tools/openfst/lib/fst/libfstfarscript.so
+#	  ${KALDI_TRUNK}/tools/openfst/lib/fst/libfstngram.so
+#	  ${KALDI_TRUNK}/tools/openfst/lib/fst/ngram-fst.so
+#	)
+#else()
+#endif()
+
 if (UNIX)
 	set(OPENFSTLIBS
-	  /home/yuri/work/install/kaldi-trunk-gpu/tools/openfst/lib/libfst.so
-	  /home/yuri/work/install/kaldi-trunk-gpu/tools/openfst/lib/fst/libfstfar.so
-	  /home/yuri/work/install/kaldi-trunk-gpu/tools/openfst/lib/fst/libfstfarscript.so
-	  /home/yuri/work/install/kaldi-trunk-gpu/tools/openfst/lib/fst/libfstngram.so
-	  /home/yuri/work/install/kaldi-trunk-gpu/tools/openfst/lib/fst/ngram-fst.so
+	  ${KALDI_TRUNK}/tools/openfst/lib/libfst.a
+	  ${KALDI_TRUNK}/tools/openfst/lib/fst/libfstfar.a
+	  ${KALDI_TRUNK}/tools/openfst/lib/fst/libfstfarscript.a
+	  ${KALDI_TRUNK}/tools/openfst/lib/fst/libfstngram.a
+	  ${KALDI_TRUNK}/tools/openfst/lib/fst/ngram-fst.a
 	)
 else()
 endif()
 
+#if (UNIX)
+#	set(OPENFSTLIBS
+#	  /home/vm/work/coding/kaldi/tools_temp/openfst-1.3.2/lib/libfst.so
+#	  /home/vm/work/coding/kaldi/tools_temp/openfst-1.3.2/lib/libfstscript.so
+#	  /home/vm/work/coding/kaldi/tools_temp/openfst-1.3.2/lib/fst/libfstfar.so
+#	  /home/vm/work/coding/kaldi/tools_temp/openfst-1.3.2/lib/fst/libfstfarscript.so
+#	  /home/vm/work/coding/kaldi/tools_temp/openfst-1.3.2/lib/fst/libfstngram.so
+#	  /home/vm/work/coding/kaldi/tools_temp/openfst-1.3.2/lib/fst/ngram-fst.so
+#	)
+#else()
+#endif()
+
+#if (UNIX)
+#	set(ATLASLIBS
+#	  /usr/lib/atlas-base/libatlas.so.3.0
+#	  /usr/lib/atlas-base/libf77blas.so.3.0
+#	  /usr/lib/atlas-base/libcblas.so.3
+#	  /usr/lib/atlas-base/liblapack_atlas.so.3
+#	)
+#endif()
+
 if (UNIX)
 	set(ATLASLIBS
-	  /usr/lib/atlas-base/libatlas.so.3.0
-	  /usr/lib/atlas-base/libf77blas.so.3.0
-	  /usr/lib/atlas-base/libcblas.so.3
-	  /usr/lib/atlas-base/liblapack_atlas.so.3
+	  /usr/lib/atlas-base/libatlas.so.3gf
+	  /usr/lib/atlas-base/libf77blas.so.3gf
+	  /usr/lib/atlas-base/libcblas.so.3gf
+	  /usr/lib/atlas-base/liblapack_atlas.so.3gf
 	)
 endif()
 
@@ -92,7 +124,9 @@ endif()
 ### Add externals ###
 #####################
 
-add_module(fst)
+if (WINDOWS)
+	add_module(fst)
+endif()
 #add_module(StcAsrAcoModelMap)
 
 ###################

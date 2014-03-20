@@ -4,11 +4,15 @@
 import os
 import sys
 import shutil
+import platform
 import re
 #import random
 from argparse import ArgumentParser
 
 # --kaldi=..\kaldi-trunk --project=..\trunk
+# --kaldi=../kaldi-trunk --project=../project/kaldi
+
+sys_type = platform.system()
 
 parser = ArgumentParser(prog = "kaldi-cmake", description = "Скрипт для создания файлов проекта под CMake.")
 parser.add_argument ('-k', '--kaldi', default = os.getenv("KALDI_ROOT"), help = "Путь к директории с исходниками Kaldi.", metavar = 'DIR')
@@ -36,21 +40,30 @@ g_tst_name = "test"
 
 #g_allowed = ["base", "cudamatrix", "feat", "lm", "matrix", "nnet", "tree", "util"]
 g_allowed_bin = ["bin"]
-g_allowed_lib = ["base", "cudamatrix", "feat", "gmm", "hmm", "matrix", "thread", "tree", "util"]
+g_allowed_lib = [
+    "decoder", "transform", "lat", "nnet", "nnet2", "hmm", "sgmm", "sgmm2", "gmm",
+    "ivector", "thread", "tree", "feat", "lm", "util", "cudamatrix", "matrix", "fstext", "base"
+]
 g_excl_dir = ["doc", "gst-plugin", "makefiles", "online", "onlinebin"]
 g_excl_src = [
-    "cu-device.cc",
+    "compute-kaldi-pitch-feats.cc",
     "copy-feats-to-htk.cc",
     "copy-feats-to-sphinx.cc",
-    "nnet-component-test.cc",
-    "online-tcp-source.cc",
-    "online-audio-client.cc",
-    "online-audio-server-decode-faster.cc",
+    "cu-device.cc",
     "kaldi-io-test.cc",
     "kaldi-table-test.cc",
+    "nnet-component-test.cc",
+    "online-audio-client.cc",
+    "online-audio-server-decode-faster.cc",
+    "online-tcp-source.cc",
+    "process-kaldi-pitch-feats.cc",
     "timer.h"
 ]
-g_external = {"fst":"fst", "irstlm":None}
+g_external = None
+if sys_type == "Linux":
+    g_external = {"fst":None, "irstlm":None}
+else:
+    g_external = {"fst":"fst", "irstlm":None}
 
 g_inc_dir = os.path.join(g_proj_src, g_inc_name)
 g_src_dir = os.path.join(g_proj_src, g_src_name)
@@ -139,22 +152,20 @@ def IsApplication(_path):
     return False
 
 def IsAllowed(_module):
+    #print(_module.name + " - " + _module.src_lst[0].ref_path)
     for depend in module.depends:
-        if not (depend in g_allowed_bin) and not (depend in g_allowed_lib):
+        if not (depend in g_allowed_bin) and not (depend in g_allowed_lib) and not (depend in g_external):
+            #print("    - depend: " + depend)
             return False
     for src_file in _module.src_lst:
         if os.path.basename(src_file.ref_path) in g_excl_src:
+            #print("    - ref_path: " + src_file.ref_path)
             return False
     return True
 
 def AddStaticLibrary(_file, _module):
     _file.write("\nadd_library(" + _module.name + " STATIC ${" + _module.var_src + "} ${" + _module.var_hdr + "})\n")
     _file.write("set_default_library_target_properties(" + _module.name + ")\n")
-    #for depend in _module.depends:
-    #    _file.write("import_static_library(" + _module.name + " " + depend + ")\n")
-    #for depend in g_import:
-    #    if not (depend in _module.depends):
-    #        _file.write("import_static_library(" + _module.name + " " + depend + ")\n")
 
 def AddExecutable(_file, _module, _headers, _regist):
     mod_name = os.path.basename(_module.src_lst[0].ref_path)
@@ -168,12 +179,9 @@ def AddExecutable(_file, _module, _headers, _regist):
         _regist[mod_name] = 1
     _file.write("\nadd_executable(" + mod_name + " " + _module.src_lst[0].ref_path + ")\n")
     _file.write("set_default_executable_target_properties(" + mod_name + ")\n")
-#    _file.write("import_static_library(" + mod_name + " " + _module.name + ")\n")
-
     for depend in g_external:
         if g_external[depend] != None:
             _file.write("import_shared_library(" + mod_name + " " + depend + ")\n")
-
     for depend in g_allowed_lib:
         if not (depend in _headers):
             _file.write("import_static_library(" + mod_name + " " + depend + ")\n")
@@ -190,8 +198,8 @@ print("======= BEGIN =======")
 #    shutil.rmtree(g_proj_src, True)
 print("Копирование директории: " + g_cmake_src)
 shutil.copytree(g_cmake_src, g_cmake_dst)
-print("Копирование директории: " + g_externals_src)
-shutil.copytree(g_externals_src, g_externals_dst)
+#print("Копирование директории: " + g_externals_src)
+#shutil.copytree(g_externals_src, g_externals_dst)
 print("Создание директории: " + g_inc_dir)
 os.mkdir(g_inc_dir)
 print("Создание директории: " + g_src_dir)
