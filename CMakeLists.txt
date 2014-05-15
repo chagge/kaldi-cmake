@@ -55,23 +55,23 @@ endif()
 #else()
 #endif()
 
-#if (UNIX)
-#	set(ATLASLIBS
-#	  /usr/lib/atlas-base/libatlas.so.3.0
-#	  /usr/lib/atlas-base/libf77blas.so.3.0
-#	  /usr/lib/atlas-base/libcblas.so.3
-#	  /usr/lib/atlas-base/liblapack_atlas.so.3
-#	)
-#endif()
-
 if (UNIX)
 	set(ATLASLIBS
-	  /usr/lib/atlas-base/libatlas.so.3gf
-	  /usr/lib/atlas-base/libf77blas.so.3gf
-	  /usr/lib/atlas-base/libcblas.so.3gf
-	  /usr/lib/atlas-base/liblapack_atlas.so.3gf
+	  /usr/lib/atlas-base/libatlas.so.3.0
+	  /usr/lib/atlas-base/libf77blas.so.3.0
+	  /usr/lib/atlas-base/libcblas.so.3
+	  /usr/lib/atlas-base/liblapack_atlas.so.3
 	)
 endif()
+
+# if (UNIX)
+	# set(ATLASLIBS
+	  # /usr/lib/atlas-base/libatlas.so.3gf
+	  # /usr/lib/atlas-base/libf77blas.so.3gf
+	  # /usr/lib/atlas-base/libcblas.so.3gf
+	  # /usr/lib/atlas-base/liblapack_atlas.so.3gf
+	# )
+# endif()
 
 if (WINDOWS)
 	set(Boost_USE_STATIC_LIBS   ON)
